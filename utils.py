@@ -1,12 +1,7 @@
 import numpy as np
-from keras import optimizers
-from keras.models import Sequential
-from keras.layers import Dense
-from keras.layers import LSTM
-from keras.layers import Dropout
-import keras
 import matplotlib.pylab as plt
-
+from tensorflow.python.keras.backend import clear_session
+import tensorflow as tf
 
 def window_slice(data, window_size, stride):
     assert window_size <= len(data)
@@ -17,21 +12,50 @@ def window_slice(data, window_size, stride):
     return np.array(rtn)
 
 
-def build_train_rnn(x_train, x_test, y_train, y_test, epochs=100, batch_size=256):
-    keras.backend.clear_session()
-    regressor = Sequential()
-    regressor.add(LSTM(units=64, return_sequences=True, input_shape=(x_train.shape[1:]), kernel_initializer='random_uniform'))
-    regressor.add(Dropout(0.2))  # ignore 20% of the neurons in both forward and backward propagation
-    regressor.add(LSTM(units=64, return_sequences=True, kernel_initializer='random_uniform'))
-    regressor.add(Dropout(0.2))  # ignore 20% of the neurons in both forward and backward propagation
-    regressor.add(LSTM(units=64, return_sequences=False, kernel_initializer='random_uniform'))
-    regressor.add(Dropout(0.2))
-    regressor.add(Dense(units=128, kernel_initializer='random_uniform'))
-    regressor.add(Dropout(0.2))
-    regressor.add(Dense(units=y_train.shape[1], activation='softmax', kernel_initializer='random_uniform'))
-    adam = optimizers.adam(lr=1e-4, decay=1e-7)
-    regressor.compile(optimizer=adam, loss='categorical_crossentropy', metrics=['accuracy'])
-    history = regressor.fit(x_train, y_train, validation_data=[x_test, y_test], epochs=epochs, batch_size=batch_size)
+def build_train_rnn(x_train, x_test, y_train, y_test, epochs=200, batch_size=256):
+    clear_session()
+    classifier = tf.keras.Sequential()
+    classifier.add(tf.keras.layers.LSTM(units=64, return_sequences=True, input_shape=(x_train.shape[1:]), kernel_initializer='random_uniform'))
+    classifier.add(tf.keras.layers.Dropout(0.2))  # ignore 20% of the neurons in both forward and backward propagation
+    classifier.add(tf.keras.layers.LSTM(units=64, return_sequences=True, kernel_initializer='random_uniform'))
+    classifier.add(tf.keras.layers.Dropout(0.2))  # ignore 20% of the neurons in both forward and backward propagation
+    classifier.add(tf.keras.layers.LSTM(units=64, return_sequences=False, kernel_initializer='random_uniform'))
+    classifier.add(tf.keras.layers.Dropout(0.2))
+    classifier.add(tf.keras.layers.Dense(units=128, kernel_initializer='random_uniform'))
+    classifier.add(tf.keras.layers.Dropout(0.2))
+    classifier.add(tf.keras.layers.Dense(units=y_train.shape[1], activation='softmax', kernel_initializer='random_uniform'))
+    adam = tf.keras.optimizers.Adam(lr=1e-4, decay=1e-7)
+    classifier.compile(optimizer=adam, loss='categorical_crossentropy', metrics=['accuracy'])
+    history = classifier.fit(x_train, y_train, validation_data=[x_test, y_test], epochs=epochs, batch_size=batch_size)
+    return history
+
+
+def build_train_cnn(x_train, x_test, y_train, y_test, epochs=200, batch_size=256):
+    clear_session()
+    classifier = tf.keras.Sequential()
+    classifier.add(tf.keras.layers.Conv1D(filters=32, kernel_size=(3,), input_shape=(x_train.shape[1:]), kernel_initializer='random_uniform'))
+    classifier.add(tf.keras.layers.BatchNormalization())
+    classifier.add(tf.keras.layers.MaxPooling1D(pool_size=2))
+
+    classifier.add(tf.keras.layers.Conv1D(filters=32, kernel_size=(3,)))
+    classifier.add(tf.keras.layers.BatchNormalization())
+    classifier.add(tf.keras.layers.MaxPooling1D(pool_size=2))
+
+    classifier.add(tf.keras.layers.Conv1D(filters=32, kernel_size=(3, ), kernel_initializer='random_uniform'))
+    classifier.add(tf.keras.layers.BatchNormalization())
+    classifier.add(tf.keras.layers.MaxPooling1D(pool_size=2))
+
+    classifier.add(tf.keras.layers.Flatten())
+
+    classifier.add((tf.keras.layers.Dense(units=64, activation='relu', kernel_initializer='random_uniform')))
+    classifier.add(tf.keras.layers.Dropout(rate=0.2))
+    classifier.add((tf.keras.layers.Dense(units=32, activation='relu', kernel_initializer='random_uniform')))
+    classifier.add(tf.keras.layers.Dropout(rate=0.2))
+    classifier.add((tf.keras.layers.Dense(units=y_train.shape[1], activation='softmax', kernel_initializer='random_uniform')))
+
+    adam = tf.keras.optimizers.Adam(lr=1e-4, decay=1e-7)
+    classifier.compile(optimizer=adam, loss='categorical_crossentropy', metrics=['accuracy'])
+    history = classifier.fit(x_train, y_train, validation_data=[x_test, y_test], epochs=epochs, batch_size=batch_size)
     return history
 
 
@@ -51,4 +75,31 @@ def plot_train_history(history, note=''):
     plt.ylabel('loss')
     plt.xlabel('epoch')
     plt.legend(['train', 'test'], loc='upper left')
+    plt.show()
+
+def plot_cm_results(freqs, locs, train_histories, note=''):
+    acc_matrix = np.array([entry[1][1] for scn, entry in train_histories.items()]).reshape((3, 3))
+
+    fig, ax = plt.subplots()
+    im = ax.imshow(acc_matrix)
+
+    # We want to show all ticks...
+    ax.set_xticks(np.arange(len(freqs)))
+    ax.set_yticks(np.arange(len(locs)))
+    # ... and label them with the respective list entries
+    ax.set_xticklabels(freqs)
+    ax.set_yticklabels(locs)
+
+    # Rotate the tick labels and set their alignment.
+    plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
+             rotation_mode="anchor")
+
+    # Loop over data dimensions and create text annotations.
+    for i in range(len(locs)):
+        for j in range(len(freqs)):
+            text = ax.text(j, i, round(acc_matrix[i, j], 3),
+                           ha="center", va="center", color="w")
+
+    ax.set_title("Three motion classification accuracies " + note)
+    # fig.tight_layout()
     plt.show()
