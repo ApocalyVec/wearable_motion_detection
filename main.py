@@ -5,7 +5,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 
-from utils import window_slice, build_train_rnn, plot_train_history, plot_cm_results
+from utils import window_slice, build_train_rnn, plot_train_history, plot_cm_results, build_train_cnn, build_train_ann
 import matplotlib.pyplot as plt
 # meta information
 data_root = 'D:\PycharmProjects\wearable_motion_detection\data'
@@ -15,7 +15,7 @@ label_index = 1
 scenario_indices = [True, False, True]
 # data information
 window_size = 200  # take 10 seconds as a sample
-stride = 10  # step every second because the sampling rate is 20 Hz
+stride = 5  # step every second because the sampling rate is 20 Hz
 downsample_threshold = 10000  # complete data has 160001 points and they need to be downsampled
 downsample_steps = 10
 
@@ -55,31 +55,39 @@ sc.fit(data_all)
 encoder = OneHotEncoder()
 encoder.fit(labels_all)
 
-scenario_train_histories_rnn = {}
-scenario_train_histories_cnn = {}
+scenario_train_histories= {}
 
 for scn, xy in scenario_data.items():
     print('Training on scenario: ' + str(scn))
     x = np.array([sc.transform(x_raw) for x_raw in xy['x']])
-    y = encoder.transform(xy['y'].reshape(-1, 1))
+    y = encoder.transform(xy['y'].reshape(-1, 1)).toarray()
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.20, random_state=3, shuffle=True)
+
+    # test the ANN
+    history = build_train_ann(x_train, x_test, y_train, y_test)
+    plot_train_history(history, note=str(scn) + ' ANN')
+    eval = history.model.evaluate(x=x_test, y=y_test)
+    scenario_train_histories[('ANN', scn)] = [history, eval]
 
     # test the RNN
     history = build_train_rnn(x_train, x_test, y_train, y_test)
     plot_train_history(history, note=str(scn) + ' RNN')
     eval = history.model.evaluate(x=x_test, y=y_test)
-    scenario_train_histories_rnn[scn] = [history, eval]
+    scenario_train_histories[('RNN', scn)] = [history, eval]
 
     # test the CNN
-    history = build_train_rnn(x_train, x_test, y_train, y_test)
+    history = build_train_cnn(x_train, x_test, y_train, y_test)
     plot_train_history(history, note=str(scn) + ' CNN')
     eval = history.model.evaluate(x=x_test, y=y_test)
-    scenario_train_histories_cnn[scn] = [history, eval]
+    scenario_train_histories[('CNN', scn)] = [history, eval]
 
-# scenario_train_evals = dict([(scn, entry[1]) for scn, entry in scenario_train_histories.items()])
-# pickle.dump(scenario_train_evals, open('scenario_train_histories_052320.p', 'wb'))
+
 freqs = ['04g', '24g', '5g']
 locs = ['foot', 'hand', 'head']
 # horizontal axis are the frequencies, vertical are the locations
-plot_cm_results(freqs, locs, scenario_train_histories_rnn, note='RNN')
-plot_cm_results(freqs, locs, scenario_train_histories_cnn, note='CNN')
+mdl = 'ANN'
+plot_cm_results(freqs, locs, [(key, value) for key, value in scenario_train_histories.items() if mdl in key], note=mdl)
+mdl = 'RNN'
+plot_cm_results(freqs, locs, [(key, value) for key, value in scenario_train_histories.items() if mdl in key], note=mdl)
+mdl = 'CNN'
+plot_cm_results(freqs, locs, [(key, value) for key, value in scenario_train_histories.items() if mdl in key], note=mdl)
