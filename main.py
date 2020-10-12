@@ -151,3 +151,5 @@ for i, lc in enumerate(locs):
         ax[i][j].set_title(str(lc) + ', ' + str(fq))
         ax[i][j].legend(loc='best')
 plt.show()
+
+
