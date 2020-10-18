@@ -7,7 +7,7 @@ from matplotlib.pyplot import cm
 def window_slice(data, window_size, stride):
     assert window_size <= len(data)
     assert stride > 0
-    rtn = []
+    rtn = np.expand_dims(data, axis=0) if window_size == len(data) else []
     for i in range(window_size, len(data), stride):
         rtn.append(data[i - window_size:i])
     return np.array(rtn)
@@ -15,7 +15,7 @@ def window_slice(data, window_size, stride):
 def build_train_rnn(x_train, x_test, y_train, y_test, epochs=300, batch_size=64):
     clear_session()
     classifier = tf.keras.Sequential()
-    classifier.add(tf.keras.layers.LSTM(units=64, return_sequences=True, input_shape=(x_train.shape[1:]), kernel_initializer='random_uniform'))
+    classifier.add(tf.keras.layers.LSTM(units=64, return_sequences=True, input_shape=(x_train.shape[1:]), kernel_initializer='random_uniform', kernel_regularizer=tf.keras.regularizers.l2(l=1e-4)))
     classifier.add(tf.keras.layers.Dropout(0.2))  # ignore 20% of the neurons in both forward and backward propagation
     classifier.add(tf.keras.layers.LSTM(units=64, return_sequences=True, kernel_initializer='random_uniform', kernel_regularizer=tf.keras.regularizers.l2(l=1e-4)))
     classifier.add(tf.keras.layers.Dropout(0.2))  # ignore 20% of the neurons in both forward and backward propagation
