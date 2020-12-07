@@ -16,14 +16,17 @@ def window_slice(data, window_size, stride):
         rtn.append(data[i - window_size:i])
     return np.array(rtn)
 
-def build_train_rnn(x_train, x_test, y_train, y_test, epochs=250, batch_size=64):
+def build_train_rnn(x_train, x_test, y_train, y_test, epochs=250, batch_size=64, use_GPU=True):
     clear_session()
     classifier = tf.keras.Sequential()
-    classifier.add(CuDNNLSTM(units=64, return_sequences=True, input_shape=(x_train.shape[1:]), kernel_initializer='random_uniform', kernel_regularizer=tf.keras.regularizers.l2(l=1e-4)))
+
+    LSTM_moddule = CuDNNLSTM if use_GPU else tf.keras.layers.LSTM
+
+    classifier.add(LSTM_moddule(units=64, return_sequences=True, input_shape=(x_train.shape[1:]), kernel_initializer='random_uniform', kernel_regularizer=tf.keras.regularizers.l2(l=1e-4)))
     classifier.add(tf.keras.layers.Dropout(0.2))  # ignore 20% of the neurons in both forward and backward propagation
-    classifier.add(CuDNNLSTM(units=64, return_sequences=True, kernel_initializer='random_uniform', kernel_regularizer=tf.keras.regularizers.l2(l=1e-4)))
+    classifier.add(LSTM_moddule(units=64, return_sequences=True, kernel_initializer='random_uniform', kernel_regularizer=tf.keras.regularizers.l2(l=1e-4)))
     classifier.add(tf.keras.layers.Dropout(0.2))  # ignore 20% of the neurons in both forward and backward propagation
-    classifier.add(CuDNNLSTM(units=64, return_sequences=False, kernel_initializer='random_uniform', kernel_regularizer=tf.keras.regularizers.l2(l=1e-4)))
+    classifier.add(LSTM_moddule(units=64, return_sequences=False, kernel_initializer='random_uniform', kernel_regularizer=tf.keras.regularizers.l2(l=1e-4)))
     classifier.add(tf.keras.layers.Dropout(0.2))
     classifier.add(tf.keras.layers.Dense(units=128, kernel_initializer='random_uniform'))
     classifier.add(tf.keras.layers.Dropout(0.2))
@@ -79,11 +82,13 @@ def build_train_cnn(x_train, x_test, y_train, y_test, epochs=250, batch_size=64)
 
 
 
-def build_train_birnn_with_attention(x_train, x_test, y_train, y_test, epochs=250, batch_size=64):
+def build_train_birnn_with_attention(x_train, x_test, y_train, y_test, epochs=250, batch_size=64, use_GPU=True):
     clear_session()
 
+    LSTM_moddule = CuDNNLSTM if use_GPU else tf.keras.layers.LSTM
+
     sequence_input = tf.keras.layers.Input(shape=(x_train.shape[1], x_train.shape[2]))
-    lstm = tf.keras.layers.Bidirectional(CuDNNLSTM(64, return_sequences=True), name="bi_lstm_0")(sequence_input)
+    lstm = tf.keras.layers.Bidirectional(LSTM_moddule(64, return_sequences=True), name="bi_lstm_0")(sequence_input)
     lstm = tf.keras.layers.Dropout(0.2, name="drop_0")(lstm)
     # lstm = tf.keras.layers.Bidirectional(CuDNNLSTM(64, return_sequences=True), name="bi_lstm_1")(lstm)
     # lstm = tf.keras.layers.Dropout(0.2, name="drop_1")(lstm)
