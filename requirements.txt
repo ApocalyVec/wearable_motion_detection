@@ -1,0 +1,8 @@
+numpy
+tensorflow
+matplotlib
+sklearn
+scipy
+pandas
+opencv-python
+xlrd

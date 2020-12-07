@@ -6,6 +6,7 @@ from matplotlib.pyplot import cm
 from tensorflow.python.keras.layers import CuDNNLSTM, Concatenate
 
 from attention import Attention
+from data_utils import get_model_size
 
 
 def window_slice(data, window_size, stride):
@@ -33,7 +34,10 @@ def build_train_rnn(x_train, x_test, y_train, y_test, epochs=250, batch_size=64,
     classifier.add(tf.keras.layers.Dense(units=y_train.shape[1], activation='softmax', kernel_initializer='random_uniform'))
     adam = tf.keras.optimizers.Adam(lr=1e-4, decay=1e-7)
     classifier.compile(optimizer=adam, loss='categorical_crossentropy', metrics=['accuracy'])
+
     history = classifier.fit(x=x_train, y=y_train, validation_data=(x_test, y_test), epochs=epochs, batch_size=batch_size)
+
+    get_model_size(classifier)
     return history
 
 def build_train_ann(x_train, x_test, y_train, y_test, epochs=250, batch_size=64):
@@ -51,6 +55,8 @@ def build_train_ann(x_train, x_test, y_train, y_test, epochs=250, batch_size=64)
     adam = tf.keras.optimizers.Adam(lr=1e-4, decay=1e-7)
     classifier.compile(optimizer=adam, loss='categorical_crossentropy', metrics=['accuracy'])
     history = classifier.fit(x=x_train, y=y_train, validation_data=(x_test, y_test), epochs=epochs, batch_size=batch_size)
+    get_model_size(classifier)
+
     return history
 
 
@@ -78,6 +84,8 @@ def build_train_cnn(x_train, x_test, y_train, y_test, epochs=250, batch_size=64)
     adam = tf.keras.optimizers.Adam(lr=1e-4, decay=1e-7)
     classifier.compile(optimizer=adam, loss='categorical_crossentropy', metrics=['accuracy'])
     history = classifier.fit(x=x_train, y=y_train, validation_data=(x_test, y_test), epochs=epochs, batch_size=batch_size)
+    get_model_size(classifier)
+
     return history
 
 
@@ -107,6 +115,8 @@ def build_train_birnn_with_attention(x_train, x_test, y_train, y_test, epochs=25
     adam = tf.keras.optimizers.Adam(lr=1e-4, decay=1e-7)
     classifier.compile(optimizer=adam, loss='categorical_crossentropy', metrics=['accuracy'])
     history = classifier.fit(x=x_train, y=y_train, validation_data=(x_test, y_test), epochs=epochs, batch_size=batch_size)
+    get_model_size(classifier)
+
 
     # classifier = tf.keras.Sequential()
     # classifier.add(tf.keras.layers.Bidirectional(CuDNNLSTM(units=64, return_sequences=True, input_shape=(x_train.shape[1:]), kernel_initializer='random_uniform', kernel_regularizer=tf.keras.regularizers.l2(l=1e-4))))
