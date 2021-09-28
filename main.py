@@ -6,7 +6,6 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 from scipy import interpolate
-from tensorflow.python.keras import models
 
 from utils import window_slice, build_train_rnn, plot_train_history, plot_cm_results, build_train_cnn, build_train_ann, \
     build_train_birnn_with_attention, get_img_from_fig, plot_roc_multiclass
@@ -47,6 +46,7 @@ def load_data(data_root, feature_names, scenario_data, data_all, labels_all):
     features = [
         [os.path.join(data_root, ftn, fn) for fn in os.listdir(os.path.join(data_root, ftn)) if not fn.startswith('.')]
         for ftn in features_names]
+    [fts.sort() for fts in features]
     features = np.array(features).transpose()  # make all the features to be a row entry
 
     data_whole_seqs = []
@@ -56,7 +56,11 @@ def load_data(data_root, feature_names, scenario_data, data_all, labels_all):
         dfs = [pd.read_excel(fl, header=None) for fl in fls]
         tags = [np.array(fl.strip('.xls').split('_')[-num_tags:]) for fl in fls]
         scenario = tuple(tags[0][scenario_indices])
+        if scenario[1] == '50g':
+            scenario = (scenario[0], '5g')
 
+        # make sure these two features have the same tag
+        assert np.all(tags[0] == tags[1])
         data = np.array([np.squeeze(df.values, axis=-1) for df in dfs]).transpose()
         if len(data) > downsample_threshold:  # downsample the large data
             data = data[::downsample_steps]
@@ -69,25 +73,31 @@ def load_data(data_root, feature_names, scenario_data, data_all, labels_all):
         samples = window_slice(data, window_size=window_size, stride=stride)
         label = [tags[0][label_index]] * len(samples)
 
-        if scenario not in scenario_data.keys():
-            scenario_data[scenario] = {'x': samples, 'y': label}
-        else:
-            scenario_data[scenario]['x'] = np.concatenate([scenario_data[scenario]['x'], samples])
-            scenario_data[scenario]['y'] = np.concatenate([scenario_data[scenario]['y'], label])
-        data_all = np.concatenate([data_all, data])
-        labels_all = np.concatenate([labels_all, np.array([label]).transpose()])
+        if tags[0][label_index] in classes:
+            if scenario not in scenario_data.keys():
+                scenario_data[scenario] = {'x': samples, 'y': label}
+            else:
+                scenario_data[scenario]['x'] = np.concatenate([scenario_data[scenario]['x'], samples])
+                scenario_data[scenario]['y'] = np.concatenate([scenario_data[scenario]['y'], label])
+            data_all = np.concatenate([data_all, data])
+            labels_all = np.concatenate([labels_all, np.array([label]).transpose()])
     return scenario_data, data_all, labels_all
     # build and train the models
 
 
 features_names = ['pha', 'RSS']
+# classes = ['fal', 'run', 'sta', 'wal']
+classes = ['fal', 'run', 'sta', 'wal']
 scenario_data = {}
 data_all = np.empty(shape=(0, len(features_names)))
 labels_all = np.empty(shape=(0, 1))
 data_roots = [
-    '/media/apocalyvec/Extreme SSD/data/wmd/1012/Calibrated data for the experimenal data at 201903',
-    '/media/apocalyvec/Extreme SSD/data/wmd/1012/Calibrated data for the experimenal data at 201906',
-    '/media/apocalyvec/Extreme SSD/data/wmd']
+    # '/media/apocalyvec/Data2T/temp/wireless motion detection/data_20190523',
+    # '/media/apocalyvec/Data2T/temp/wireless motion detection/data_calib_201903',
+    # '/media/apocalyvec/Data2T/temp/wireless motion detection/data_calib_201906',
+    # '/media/apocalyvec/Data2T/temp/wireless motion detection/data_20210917/20Hz AN1',
+    '/media/apocalyvec/Data2T/temp/wireless motion detection/data_20210917/20Hz AN2'
+]
 for dr in data_roots:
     scenario_data, data_all, labels_all = load_data(dr, features_names, scenario_data, data_all, labels_all)
 
@@ -145,15 +155,6 @@ for mdl in strcts.keys():
 
 # scenario_train_histories_without_model = list([mdl_scn, his_eval[0].history] for mdl_scn, his_eval in scenario_train_histories.items())
 # pickle.dump(scenario_train_histories_without_model, open('results/scenario_train_histories_111420.p', 'wb'))
-
-
-
-
-
-
-
-
-
 
 rename_map = {'foo': 'foot', 'han': 'hand', 'hea': 'head'}
 rename_freq_map = {'04g': '0.4 GHz', '24g': '2.4 GHz', '5g': '5 GHz'}
@@ -218,8 +219,8 @@ plt.rc('legend', fontsize=SMALL_SIZE)  # legend fontsize
 plt.rc('figure', titlesize=BIGGER_SIZE)
 
 fig, ax = plt.subplots(nrows=len(locs), ncols=len(freqs))
-for i, lc in enumerate(locs):
-    for j, fq in enumerate(freqs):
+for i, lc in enumerate(rename_map.values()):
+    for j, fq in enumerate(rename_freq_map.values()):
         strct_sn_hists = [(strct_scn[0], hist_eval[0].history['val_accuracy']) for strct_scn, hist_eval in
                           scenario_train_histories_rename.items() if (lc, fq) == strct_scn[1]]
         for strct, sn_hist in strct_sn_hists:
@@ -229,6 +230,7 @@ for i, lc in enumerate(locs):
         # ax[i][j].set_ylim(-0.1, 3.0)
         ax[i][j].set_title(str(lc) + ', ' + str(fq))
         # ax[i][j].legend(loc='best')
+plt.tight_layout()
 plt.show()
 
 # visualize intermidiate CNN kernels ############################
@@ -274,6 +276,8 @@ print("Predicted class is:", encoder.inverse_transform(classes))
 # Creates a model that will return these outputs, given the model input
 layer_outputs = [layer.output for layer in model.layers[:9] if 'batch_normalization' not in layer.name]
 # Extracts the outputs of the top 12 layers
+from tensorflow.python.keras import models
+
 activation_model = models.Model(inputs=model.input, outputs=layer_outputs)
 activations = activation_model.predict(sample_normalized_batch)
 
