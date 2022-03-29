@@ -105,7 +105,7 @@ def build_train_birnn_with_attention(x_train, x_test, y_train, y_test, epochs=25
     context_vector, attention_weights = Attention(10)(lstm, state_h)
     dense1 = tf.keras.layers.Dense(128, activation="relu")(context_vector)
     dropout = tf.keras.layers.Dropout(0.05)(dense1)
-    output = tf.keras.layers.Dense(y_train.shape[1], activation="softmax", kernel_regularizer=tf.keras.regularizers.l2(l=1e-5))(dropout)
+    output = tf.keras.layers.Dense(y_train.shape[1], activation="softmax", kernel_regularizer=tf.keras.regularizers.l2(l=1e-3))(dropout)
 
     classifier = tf.keras.Model(inputs=sequence_input, outputs=output)
     adam = tf.keras.optimizers.Adam(lr=1e-4, decay=1e-7)
